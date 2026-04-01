@@ -1,8 +1,36 @@
-"""A 3D Slicer extension for loading and saving MLArray (.mla) medical image files.."""
+"""Helpers for a scripted 3D Slicer MLArray IO extension."""
 
 from importlib import metadata as _metadata
 
-__all__ = ["__version__"]
+from .conversion import (
+    ResolvedMlaLayout,
+    SlicerGeometry,
+    build_export_axis_labels,
+    ijk_to_ras_matrix_from_geometry,
+    mlarray_geometry_to_slicer,
+    mla_array_to_slicer,
+    resolve_supported_mla_layout,
+    slicer_geometry_to_mlarray,
+)
+from .dependencies import ensure_mlarray_available, import_mlarray_module
+from .exceptions import DependencyError, SlicerMLArrayError, UnsupportedLayoutError
+
+__all__ = [
+    "__version__",
+    "DependencyError",
+    "ResolvedMlaLayout",
+    "SlicerGeometry",
+    "SlicerMLArrayError",
+    "UnsupportedLayoutError",
+    "build_export_axis_labels",
+    "ensure_mlarray_available",
+    "ijk_to_ras_matrix_from_geometry",
+    "import_mlarray_module",
+    "mlarray_geometry_to_slicer",
+    "mla_array_to_slicer",
+    "resolve_supported_mla_layout",
+    "slicer_geometry_to_mlarray",
+]
 
 try:
     __version__ = _metadata.version(__name__)
