@@ -26,6 +26,7 @@ from .exceptions import DependencyError, UnsupportedLayoutError
 FILE_TYPE = "MLArrayFile"
 FILE_DESCRIPTION = "MLArray volume"
 FILE_EXTENSION_FILTER = "MLArray volume (*.mla)"
+FILE_WRITER_EXTENSION_FILTER = "MLArray volume (.mla)"
 
 ATTR_SOURCE_META_JSON = "SlicerMLArray.SourceMetaJSON"
 ATTR_EXTRA_META_JSON = "SlicerMLArray.ExtraMetaJSON"
@@ -65,7 +66,7 @@ def _vtk_matrix4x4_from_numpy(array: np.ndarray):
     return matrix
 
 
-def _numpy_from_vtk_matrix3x3(matrix) -> np.ndarray:
+def _numpy_from_vtk_direction_matrix4x4(matrix) -> np.ndarray:
     array = np.eye(3, dtype=float)
     for row in range(3):
         for column in range(3):
@@ -80,6 +81,14 @@ def _get_base_name(file_path: str, explicit_name: str | None) -> str:
         return explicit_name
     base_name = os.path.splitext(os.path.basename(file_path))[0]
     return slicer.mrmlScene.GenerateUniqueName(base_name)
+
+
+def normalize_mla_path(file_path: str) -> str:
+    """Ensure that a save path ends with `.mla`."""
+    normalized = str(file_path)
+    if normalized.lower().endswith(".mla"):
+        return normalized
+    return normalized + ".mla"
 
 
 def _get_json_attribute(node, key: str) -> dict[str, Any]:
@@ -221,22 +230,25 @@ def write_mla_volume(node, file_path: str) -> None:
     import vtk
     import slicer
 
+    if node is None:
+        raise UnsupportedLayoutError("No MRML node was provided for MLArray export.")
+
     if not can_write_slicer_node(node):
         raise UnsupportedLayoutError(
             f"Unsupported node type for MLArray export: {node.GetClassName()}."
         )
 
-    is_labelmap = node.IsA("vtkMRMLLabelMapVolumeNode")
+    is_labelmap = bool(node.IsA("vtkMRMLLabelMapVolumeNode"))
     volume_kind: VolumeKind = "labelmap" if is_labelmap else "scalar"
     voxel_array = np.array(slicer.util.arrayFromVolume(node), copy=True)
     voxel_array = export_scalar_like_array_to_mla(voxel_array)
 
-    direction_matrix = vtk.vtkMatrix3x3()
+    direction_matrix = vtk.vtkMatrix4x4()
     node.GetIJKToRASDirectionMatrix(direction_matrix)
     spacing, origin, direction = slicer_geometry_to_mlarray(
         spacing_xyz=node.GetSpacing(),
         origin_xyz=node.GetOrigin(),
-        direction_xyz=_numpy_from_vtk_matrix3x3(direction_matrix),
+        direction_xyz=_numpy_from_vtk_direction_matrix4x4(direction_matrix),
         metadata_spatial_labels=MLARRAY_DEFAULT_SPATIAL_LABELS_ZYX,
     )
 
@@ -265,7 +277,7 @@ def write_mla_volume(node, file_path: str) -> None:
         axis_labels=build_export_axis_labels(volume_kind),
         meta=meta,
     )
-    image.save(file_path)
+    image.save(normalize_mla_path(file_path))
 
 
 def reader_confidence_for_path(file_path: str) -> float:

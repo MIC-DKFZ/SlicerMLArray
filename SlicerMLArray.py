@@ -12,8 +12,10 @@ from slicer.ScriptedLoadableModule import ScriptedLoadableModule
 from slicermlarray.slicer_io import (
     FILE_DESCRIPTION,
     FILE_EXTENSION_FILTER,
+    FILE_WRITER_EXTENSION_FILTER,
     FILE_TYPE,
     load_mla_volume,
+    normalize_mla_path,
     reader_confidence_for_path,
     write_mla_volume,
     writer_confidence_for_node,
@@ -91,7 +93,7 @@ class SlicerMLArrayFileWriter:
     def extensions(self, obj):
         if writer_confidence_for_node(obj) <= 0.0:
             return []
-        return [FILE_EXTENSION_FILTER]
+        return [FILE_WRITER_EXTENSION_FILTER]
 
     def canWriteObjectConfidence(self, obj):
         return writer_confidence_for_node(obj)
@@ -99,7 +101,7 @@ class SlicerMLArrayFileWriter:
     def write(self, properties):
         try:
             node = slicer.mrmlScene.GetNodeByID(properties["nodeID"])
-            write_mla_volume(node, properties["fileName"])
+            write_mla_volume(node, normalize_mla_path(properties["fileName"]))
         except Exception as exc:
             traceback.print_exc()
             self.parent.userMessages().AddMessage(
