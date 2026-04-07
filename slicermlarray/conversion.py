@@ -18,6 +18,7 @@ SPATIAL_Z = "spatial_z"
 SLICER_SPATIAL_LABELS_XYZ = (SPATIAL_X, SPATIAL_Y, SPATIAL_Z)
 MLARRAY_DEFAULT_SPATIAL_LABELS_ZYX = (SPATIAL_Z, SPATIAL_Y, SPATIAL_X)
 CHANNEL_AXIS_LABELS = frozenset({"channel", "components"})
+SUPPORTED_WORLD_COORD_SYSTEMS = frozenset({"RAS", "LPS"})
 SUPPORTED_AXIS_LABELS = frozenset(
     {
         SPATIAL_X,
@@ -55,6 +56,33 @@ class SlicerGeometry:
     spacing_xyz: tuple[float, float, float]
     origin_xyz: tuple[float, float, float]
     direction_xyz: np.ndarray
+
+
+def resolve_world_coord_system(
+    coord_system: object | None,
+    *,
+    default: str | None = None,
+) -> str:
+    """Resolve a supported world coordinate system for Slicer import/export."""
+    resolved = default if coord_system is None else str(coord_system)
+    if resolved is None:
+        raise UnsupportedLayoutError(
+            "MLArray spatial metadata does not define a coord_system and no default was provided."
+        )
+    if resolved not in SUPPORTED_WORLD_COORD_SYSTEMS:
+        raise UnsupportedLayoutError(
+            "Unsupported MLArray coord_system for Slicer volume mapping: "
+            f"{resolved!r}. Supported values are 'RAS' and 'LPS'."
+        )
+    return resolved
+
+
+def coord_system_transform_to_ras(coord_system: object | None, *, default: str | None = None) -> np.ndarray:
+    """Return the 3x3 world-basis transform from the given coord_system to RAS."""
+    resolved = resolve_world_coord_system(coord_system, default=default)
+    if resolved == "RAS":
+        return np.eye(3, dtype=float)
+    return np.diag((-1.0, -1.0, 1.0))
 
 
 def normalize_axis_labels(axis_labels: Sequence[object] | None) -> tuple[str, ...] | None:
@@ -229,22 +257,31 @@ def _metadata_permutation_to_xyz(metadata_spatial_labels: Sequence[str]) -> tupl
     return tuple(labels.index(label) for label in SLICER_SPATIAL_LABELS_XYZ)
 
 
+def _permutation_matrix(output_order: Sequence[int]) -> np.ndarray:
+    matrix = np.zeros((len(output_order), len(output_order)), dtype=float)
+    for row_index, column_index in enumerate(output_order):
+        matrix[row_index, column_index] = 1.0
+    return matrix
+
+
 def mlarray_geometry_to_slicer(
     metadata_spatial_labels: Sequence[str],
     *,
     spacing: Sequence[float] | None,
     origin: Sequence[float] | None,
     direction: Sequence[Sequence[float]] | None,
+    coord_system: object | None = "RAS",
 ) -> SlicerGeometry:
     """Convert MLArray spatial metadata into Slicer's xyz/RAS convention."""
     permutation = _metadata_permutation_to_xyz(metadata_spatial_labels)
     spacing_values = _normalize_vector(spacing, default=(1.0, 1.0, 1.0))
     origin_values = _normalize_vector(origin, default=(0.0, 0.0, 0.0))
     direction_matrix = _normalize_direction(direction)
+    basis_to_ras = coord_system_transform_to_ras(coord_system, default="RAS")
     return SlicerGeometry(
         spacing_xyz=tuple(spacing_values[index] for index in permutation),
-        origin_xyz=tuple(origin_values[index] for index in permutation),
-        direction_xyz=direction_matrix[np.ix_(permutation, permutation)],
+        origin_xyz=tuple((basis_to_ras @ np.asarray([origin_values[index] for index in permutation], dtype=float)).tolist()),
+        direction_xyz=basis_to_ras @ direction_matrix[np.ix_(permutation, permutation)],
     )
 
 
@@ -254,6 +291,7 @@ def slicer_geometry_to_mlarray(
     origin_xyz: Sequence[float],
     direction_xyz: Sequence[Sequence[float]],
     metadata_spatial_labels: Sequence[str] = MLARRAY_DEFAULT_SPATIAL_LABELS_ZYX,
+    coord_system: object | None = "RAS",
 ) -> tuple[list[float], list[float], list[list[float]]]:
     """Convert Slicer geometry into MLArray spatial metadata order."""
     permutation = _metadata_permutation_to_xyz(metadata_spatial_labels)
@@ -261,11 +299,41 @@ def slicer_geometry_to_mlarray(
     spacing_values = _normalize_vector(spacing_xyz, default=(1.0, 1.0, 1.0))
     origin_values = _normalize_vector(origin_xyz, default=(0.0, 0.0, 0.0))
     direction_matrix = _normalize_direction(direction_xyz)
+    basis_from_coord_to_ras = coord_system_transform_to_ras(coord_system, default="RAS")
+    basis_from_ras_to_coord = basis_from_coord_to_ras.T
+    origin_in_coord = basis_from_ras_to_coord @ np.asarray(origin_values, dtype=float)
+    direction_in_coord = basis_from_ras_to_coord @ direction_matrix
     return (
         [float(spacing_values[index]) for index in reverse_permutation],
-        [float(origin_values[index]) for index in reverse_permutation],
-        direction_matrix[np.ix_(reverse_permutation, reverse_permutation)].tolist(),
+        [float(origin_in_coord[index]) for index in reverse_permutation],
+        direction_in_coord[np.ix_(reverse_permutation, reverse_permutation)].tolist(),
     )
+
+
+def mlarray_affine_to_slicer(
+    metadata_spatial_labels: Sequence[str],
+    *,
+    affine: Sequence[Sequence[float]],
+    coord_system: object | None = "RAS",
+) -> np.ndarray:
+    """Convert an MLArray spatial affine into Slicer's IJK-to-RAS matrix."""
+    affine_matrix = np.asarray(affine, dtype=float)
+    if affine_matrix.shape != (4, 4):
+        raise UnsupportedLayoutError(
+            f"Expected a 4x4 affine matrix, got shape {affine_matrix.shape}."
+        )
+
+    permutation = _metadata_permutation_to_xyz(metadata_spatial_labels)
+    world_xyz_from_meta = _permutation_matrix(permutation)
+    world_xyz_from_meta_h = np.eye(4, dtype=float)
+    world_xyz_from_meta_h[:3, :3] = world_xyz_from_meta
+    voxel_meta_from_xyz = _permutation_matrix(permutation)
+    voxel_meta_from_xyz_h = np.eye(4, dtype=float)
+    voxel_meta_from_xyz_h[:3, :3] = voxel_meta_from_xyz
+
+    world_to_ras = np.eye(4, dtype=float)
+    world_to_ras[:3, :3] = coord_system_transform_to_ras(coord_system, default="RAS")
+    return world_to_ras @ world_xyz_from_meta_h @ affine_matrix @ voxel_meta_from_xyz_h
 
 
 def ijk_to_ras_matrix_from_geometry(geometry: SlicerGeometry) -> np.ndarray:

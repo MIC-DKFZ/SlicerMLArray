@@ -8,6 +8,7 @@ Python-based 3D Slicer integration for loading and saving MLArray (`.mla`) image
 - loads supported `.mla` files as Slicer volumes
 - saves scalar and labelmap Slicer volumes back to `.mla`
 - preserves spacing, origin, direction, dtype, and selected metadata
+- respects `meta.spatial.coord_system` for `RAS` and `LPS` MLArray files
 - installs the `mlarray` Python dependency inside Slicer on demand when missing
 
 ## Supported layouts
@@ -66,12 +67,15 @@ On the first `.mla` load/save in a Slicer Python environment that does not alrea
 - Slicer numpy arrays are treated as `(z, y, x)`.
 - Saved MLArray files use explicit axis labels `["spatial_z", "spatial_y", "spatial_x"]`.
 - Geometry is permuted between MLArray spatial-axis order and Slicer's `(x, y, z)` IJK/RAS geometry representation.
+- `meta.spatial.coord_system="RAS"` is used directly; `"LPS"` is converted into Slicer's internal `RAS`.
+- older plugin-written files without `meta.spatial.coord_system` fall back to legacy `RAS` interpretation.
 - Labelmap export sets `meta.is_seg=True`.
-- Namespaced metadata is written under `extra.slicer_mlarray`.
+- Saved files also write `meta.spatial.coord_system="RAS"`.
+- Namespaced metadata is still written under `extra.slicer_mlarray` for plugin bookkeeping and legacy compatibility.
 
 ## Known limitations
 
 - no custom MRML storage node yet, so default scene-storage behavior is not fully `.mla`-native
 - no vector-volume export in this MVP
 - no temporal/ND tensor support
-- external `.mla` files with spatial metadata in a non-RAS world convention are not auto-detected
+- external `.mla` files with `coord_system` values other than `RAS` or `LPS` are rejected instead of guessed

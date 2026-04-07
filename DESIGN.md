@@ -12,7 +12,7 @@ Inspected local source: `/home/k539i/Documents/projects/mlarray`
   - `MLArray(array, spacing=..., origin=..., direction=..., axis_labels=..., meta=...).save(path)`.
 - Metadata model:
   - Spatial metadata lives under `meta.spatial`.
-  - Standard fields are `spacing`, `origin`, `direction`, `affine`, `shape`, `axis_labels`, `axis_units`.
+  - Standard fields are `spacing`, `origin`, `direction`, `affine`, `shape`, `axis_labels`, `coord_system`, `axis_units`.
   - Segmentation intent is represented by `meta.is_seg`.
   - Free-form JSON-serializable metadata lives in `meta.source` and `meta.extra`.
 - Array behavior:
@@ -85,14 +85,16 @@ Inspected local installation: `/home/k539i/Slicer-5.10.0-linux-amd64`
   - On export, Slicer `(x, y, z)` geometry is permuted back into MLArray `(z, y, x)` metadata order.
 - This preserves Slicer round-trips and matches the local MLArray examples that describe metadata as following the spatial axis order.
 
-## Important assumption
+## Coordinate-system handling
 
-MLArray itself does not define a Slicer-specific world-coordinate convention such as RAS vs LPS. For this extension:
+MLArray now provides `meta.spatial.coord_system`. For this extension:
 
-- imported MLArray spatial metadata is interpreted directly as Slicer RAS-space metadata after the axis-order permutation described above
-- exported files record a namespaced `extra.slicer_mlarray.coordinate_system = "RAS"` hint
+- `coord_system="RAS"` is mapped directly into Slicer's internal `RAS`
+- `coord_system="LPS"` is converted into `RAS` by flipping world X and Y
+- files that omit `coord_system` fall back to legacy `RAS` interpretation for backward compatibility with older plugin-written `.mla` files
+- other/custom `coord_system` values are rejected during load, because Slicer volume import cannot interpret them safely without additional rules
 
-This is correct for files written by this plugin and for external `.mla` files that already store spatial metadata in the same convention.
+Exported volumes are written with `meta.spatial.coord_system="RAS"` because Slicer volume geometry is stored internally in `RAS`.
 
 ## Native integration limitations
 

@@ -15,9 +15,11 @@ from .conversion import (
     build_export_axis_labels,
     export_scalar_like_array_to_mla,
     ijk_to_ras_matrix_from_geometry,
+    mlarray_affine_to_slicer,
     mlarray_geometry_to_slicer,
     mla_array_to_slicer,
     resolve_supported_mla_layout,
+    resolve_world_coord_system,
     slicer_geometry_to_mlarray,
 )
 from .dependencies import ensure_mlarray_available
@@ -34,6 +36,7 @@ ATTR_SOURCE_PATH = "SlicerMLArray.SourcePath"
 ATTR_KIND = "SlicerMLArray.Kind"
 ATTR_FILE_CATEGORY = "SlicerMLArray.FileCategory"
 FILE_CATEGORY_VALUE = "mla"
+LEGACY_COORD_SYSTEM_KEY = "coordinate_system"
 
 
 def _confirm_install(message: str) -> bool:
@@ -114,6 +117,23 @@ def _store_mlarray_node_attributes(node, *, file_path: str, kind: VolumeKind, so
     _set_json_attribute(node, ATTR_EXTRA_META_JSON, extra_meta)
 
 
+def _coord_system_from_mlarray(image) -> str:
+    coord_system = image.meta.spatial.coord_system
+    if coord_system is not None:
+        return resolve_world_coord_system(coord_system)
+
+    # Backward compatibility with older files written by this plugin before
+    # mlarray gained the dedicated spatial coord_system field.
+    legacy_coord_system = image.meta.extra.to_plain().get("slicer_mlarray", {}).get(
+        LEGACY_COORD_SYSTEM_KEY
+    )
+    if legacy_coord_system is not None:
+        return resolve_world_coord_system(legacy_coord_system)
+
+    # Older plugin versions implicitly wrote RAS-space geometry.
+    return "RAS"
+
+
 def _center_slice_views_on_node(node) -> None:
     import slicer
 
@@ -180,13 +200,23 @@ def load_mla_volume(file_path: str, *, explicit_name: str | None = None):
             image.meta.spatial.axis_labels,
             is_seg=bool(image.meta.is_seg),
         )
-        geometry = mlarray_geometry_to_slicer(
-            layout.metadata_spatial_labels,
-            spacing=image.spacing,
-            origin=image.origin,
-            direction=image.direction,
-        )
-        ijk_to_ras = _vtk_matrix4x4_from_numpy(ijk_to_ras_matrix_from_geometry(geometry))
+        coord_system = _coord_system_from_mlarray(image)
+        if image.meta.spatial.affine is not None:
+            ijk_to_ras_array = mlarray_affine_to_slicer(
+                layout.metadata_spatial_labels,
+                affine=image.affine,
+                coord_system=coord_system,
+            )
+        else:
+            geometry = mlarray_geometry_to_slicer(
+                layout.metadata_spatial_labels,
+                spacing=image.spacing,
+                origin=image.origin,
+                direction=image.direction,
+                coord_system=coord_system,
+            )
+            ijk_to_ras_array = ijk_to_ras_matrix_from_geometry(geometry)
+        ijk_to_ras = _vtk_matrix4x4_from_numpy(ijk_to_ras_array)
         voxel_array = np.asarray(image.to_numpy())
         slicer_array = np.asarray(mla_array_to_slicer(voxel_array, layout))
 
@@ -250,6 +280,7 @@ def write_mla_volume(node, file_path: str) -> None:
         origin_xyz=node.GetOrigin(),
         direction_xyz=_numpy_from_vtk_direction_matrix4x4(direction_matrix),
         metadata_spatial_labels=MLARRAY_DEFAULT_SPATIAL_LABELS_ZYX,
+        coord_system="RAS",
     )
 
     source_meta = _get_json_attribute(node, ATTR_SOURCE_META_JSON)
@@ -257,7 +288,7 @@ def write_mla_volume(node, file_path: str) -> None:
     slicer_extra = dict(extra_meta.get("slicer_mlarray", {}))
     slicer_extra.update(
         {
-            "coordinate_system": "RAS",
+            LEGACY_COORD_SYSTEM_KEY: "RAS",
             "saved_node_class": node.GetClassName(),
         }
     )
@@ -267,6 +298,7 @@ def write_mla_volume(node, file_path: str) -> None:
     meta = mlarray.Meta(
         source=source_meta,
         extra=extra_meta,
+        spatial={"coord_system": "RAS"},
         is_seg=is_labelmap,
     )
     image = mlarray.MLArray(
