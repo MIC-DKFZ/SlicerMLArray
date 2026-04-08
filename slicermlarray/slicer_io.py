@@ -288,7 +288,7 @@ def write_mla_volume(node, file_path: str) -> None:
     slicer_extra = dict(extra_meta.get("slicer_mlarray", {}))
     slicer_extra.update(
         {
-            LEGACY_COORD_SYSTEM_KEY: "RAS",
+            LEGACY_COORD_SYSTEM_KEY: "RAS+",
             "saved_node_class": node.GetClassName(),
         }
     )
@@ -298,7 +298,7 @@ def write_mla_volume(node, file_path: str) -> None:
     meta = mlarray.Meta(
         source=source_meta,
         extra=extra_meta,
-        spatial={"coord_system": "RAS"},
+        spatial={"coord_system": "RAS+"},
         is_seg=is_labelmap,
     )
     image = mlarray.MLArray(

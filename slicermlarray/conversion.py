@@ -58,6 +58,9 @@ class SlicerGeometry:
     direction_xyz: np.ndarray
 
 
+_COORD_SYSTEM_ALIASES: dict[str, str] = {"RAS+": "RAS", "LPS+": "LPS"}
+
+
 def resolve_world_coord_system(
     coord_system: object | None,
     *,
@@ -69,10 +72,11 @@ def resolve_world_coord_system(
         raise UnsupportedLayoutError(
             "MLArray spatial metadata does not define a coord_system and no default was provided."
         )
+    resolved = _COORD_SYSTEM_ALIASES.get(resolved, resolved)
     if resolved not in SUPPORTED_WORLD_COORD_SYSTEMS:
         raise UnsupportedLayoutError(
             "Unsupported MLArray coord_system for Slicer volume mapping: "
-            f"{resolved!r}. Supported values are 'RAS' and 'LPS'."
+            f"{coord_system!r}. Supported values are 'RAS', 'RAS+', 'LPS', and 'LPS+'."
         )
     return resolved
 

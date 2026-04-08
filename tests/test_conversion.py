@@ -201,6 +201,16 @@ def test_resolve_world_coord_system():
         resolve_world_coord_system("unknown")
 
 
+def test_resolve_world_coord_system_ras_plus_alias():
+    assert resolve_world_coord_system("RAS+") == "RAS"
+    assert resolve_world_coord_system("LPS+") == "LPS"
+
+
 def test_coord_system_transform_to_ras():
     assert np.allclose(coord_system_transform_to_ras("RAS"), np.eye(3))
     assert np.allclose(coord_system_transform_to_ras("LPS"), np.diag((-1.0, -1.0, 1.0)))
+
+
+def test_coord_system_transform_to_ras_plus_aliases():
+    assert np.allclose(coord_system_transform_to_ras("RAS+"), np.eye(3))
+    assert np.allclose(coord_system_transform_to_ras("LPS+"), np.diag((-1.0, -1.0, 1.0)))

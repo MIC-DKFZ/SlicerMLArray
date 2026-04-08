@@ -8,10 +8,11 @@ from types import ModuleType
 
 from .exceptions import DependencyError
 
-MLARRAY_INSTALL_REQUIREMENT = "mlarray"
+MLARRAY_PACKAGE_NAME = "mlarray"
+MLARRAY_INSTALL_REQUIREMENT = "--upgrade mlarray"
 MLARRAY_INSTALL_PROMPT = (
-    "MLArray support requires the Python package 'mlarray'. "
-    "Install it now into Slicer's Python environment?"
+    "MLArray support requires a recent 'mlarray' package with spatial "
+    "coord_system support. Install or upgrade it now in Slicer's Python environment?"
 )
 
 
@@ -20,7 +21,7 @@ def import_mlarray_module(
 ) -> ModuleType:
     """Import and validate the `mlarray` runtime module."""
     try:
-        module = importer("mlarray")
+        module = importer(MLARRAY_PACKAGE_NAME)
     except ModuleNotFoundError as exc:
         raise DependencyError(
             "The Python package 'mlarray' is not installed in this Python environment."
@@ -32,6 +33,16 @@ def import_mlarray_module(
         raise DependencyError(
             "The installed 'mlarray' package is incompatible with this extension. "
             f"Missing attributes: {', '.join(missing_names)}."
+        )
+
+    meta_spatial = getattr(module, "MetaSpatial")
+    annotations = getattr(meta_spatial, "__annotations__", {})
+    has_coord_system = "coord_system" in annotations or hasattr(meta_spatial, "CoordSystem")
+    if not has_coord_system:
+        version = getattr(module, "__version__", "unknown")
+        raise DependencyError(
+            "The installed 'mlarray' package is too old for this extension. "
+            f"Installed version: {version}. Required feature: MetaSpatial.coord_system."
         )
     return module
 
@@ -52,12 +63,11 @@ def ensure_mlarray_available(
             raise
         if installer is None:
             raise DependencyError(
-                "The 'mlarray' package is missing and no installer callback was provided."
+                "The required 'mlarray' package is missing or outdated and no installer callback was provided."
             ) from initial_error
         if prompt is not None and not prompt(MLARRAY_INSTALL_PROMPT):
             raise DependencyError(
-                "MLArray support requires the Python package 'mlarray'. "
-                "Installation was declined."
+                "MLArray support requires a recent 'mlarray' package. Installation/upgrade was declined."
             ) from initial_error
 
         try:
