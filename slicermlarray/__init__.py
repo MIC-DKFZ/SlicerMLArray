@@ -2,6 +2,7 @@
 
 from importlib import metadata as _metadata
 
+from .bbox_conversion import bbox_vox_to_slicer_roi, slicer_roi_to_bbox_vox
 from .conversion import (
     ResolvedMlaLayout,
     SlicerGeometry,
@@ -25,6 +26,7 @@ __all__ = [
     "SlicerGeometry",
     "SlicerMLArrayError",
     "UnsupportedLayoutError",
+    "bbox_vox_to_slicer_roi",
     "build_export_axis_labels",
     "coord_system_transform_to_ras",
     "ensure_mlarray_available",
@@ -36,6 +38,7 @@ __all__ = [
     "resolve_world_coord_system",
     "resolve_supported_mla_layout",
     "slicer_geometry_to_mlarray",
+    "slicer_roi_to_bbox_vox",
 ]
 
 try:
