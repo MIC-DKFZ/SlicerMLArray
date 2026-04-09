@@ -279,6 +279,7 @@ def load_mla_volume(file_path: str, *, explicit_name: str | None = None):
             )
             _show_loaded_volume_in_views(loaded_node, layout.kind)
 
+        roi_nodes: list = []
         if _has_bboxes:
             # Pass geometry from the image so bbox_io doesn't re-open the file.
             affine = _affine_from_image(image)
@@ -286,7 +287,7 @@ def load_mla_volume(file_path: str, *, explicit_name: str | None = None):
             coord_system_bbox = _coord_system_from_image(image)
             import os
             prefix = explicit_name or os.path.splitext(os.path.basename(file_path))[0]
-            load_mla_rois(
+            roi_nodes = load_mla_rois(
                 file_path,
                 explicit_prefix=prefix,
                 affine_override=affine,
@@ -299,7 +300,7 @@ def load_mla_volume(file_path: str, *, explicit_name: str | None = None):
                 "MLArray file has no array data and no bounding-box metadata."
             )
 
-        return loaded_node
+        return loaded_node, roi_nodes
     finally:
         image.close()
 

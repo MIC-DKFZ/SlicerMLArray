@@ -62,7 +62,7 @@ class SlicerMLArrayFileReader:
 
     def load(self, properties):
         try:
-            loaded_node = load_mla_volume(
+            loaded_node, roi_nodes = load_mla_volume(
                 properties["fileName"],
                 explicit_name=properties.get("name"),
             )
@@ -74,7 +74,12 @@ class SlicerMLArrayFileReader:
             )
             return False
 
-        self.parent.loadedNodes = [loaded_node.GetID()]
+        node_ids = []
+        if loaded_node is not None:
+            node_ids.append(loaded_node.GetID())
+        for roi_node in roi_nodes:
+            node_ids.append(roi_node.GetID())
+        self.parent.loadedNodes = node_ids
         return True
 
 
