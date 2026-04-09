@@ -69,16 +69,6 @@ def _affine_from_image(image) -> np.ndarray:
     return mat
 
 
-def _vtk_matrix4x4_from_numpy(array: np.ndarray):
-    import vtk
-
-    m = vtk.vtkMatrix4x4()
-    for r in range(4):
-        for c in range(4):
-            m.SetElement(r, c, float(array[r, c]))
-    return m
-
-
 def _metadata_spatial_labels_from_image(image) -> tuple[str, ...]:
     """Resolve metadata spatial labels for *image* (the order stored in meta)."""
     axis_labels = image.meta.spatial.axis_labels
@@ -151,9 +141,17 @@ def load_mla_rois(
 
             roi_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsROINode", node_name)
 
-            # Apply object-to-world matrix (encodes both rotation and center)
-            roi_node.SetObjectToWorldMatrix(_vtk_matrix4x4_from_numpy(obj_to_world))
-            roi_node.SetSize(*size_mm.tolist())
+            # Center and size
+            roi_node.SetCenter(center_ras.tolist())
+            roi_node.SetSize(size_mm.tolist())
+            # Orientation: GetObjectToNodeMatrix returns the live 3×3 vtkMatrix3x3;
+            # modify it in-place then call Modified() to propagate the change.
+            # (There is no SetObjectToWorldMatrix setter in vtkMRMLMarkupsROINode.)
+            object_to_node = roi_node.GetObjectToNodeMatrix()
+            for r in range(3):
+                for c in range(3):
+                    object_to_node.SetElement(r, c, float(obj_to_world[r, c]))
+            roi_node.Modified()
 
             # Display settings
             color_rgba = _ROI_COLORS[i % len(_ROI_COLORS)]
@@ -223,9 +221,9 @@ def write_mla_bboxes(
         size = [0.0, 0.0, 0.0]
         roi_node.GetSize(size)
 
-        obj_to_world_vtk = roi_node.GetObjectToWorldMatrix()
-
         import vtk
+        obj_to_world_vtk = vtk.vtkMatrix4x4()
+        roi_node.GetObjectToWorldMatrix(obj_to_world_vtk)
         obj_to_world_np = np.eye(4, dtype=float)
         for r in range(4):
             for c in range(4):
