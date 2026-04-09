@@ -53,9 +53,18 @@ def has_bboxes(image) -> bool:
 
 
 def _affine_from_image(image) -> np.ndarray:
-    """Return a 4×4 numpy affine for *image*, falling back to identity."""
+    """Return a 4×4 numpy affine for *image*, falling back to identity.
+
+    ``MLArray.affine`` returns ``None`` for array-less (bbox-only) files even
+    when ``meta.spatial.affine`` is populated, so we check that field directly
+    before trying spacing/origin/direction.
+    """
     if image.affine is not None:
         return np.asarray(image.affine, dtype=float)
+    # bbox-only files: affine lives in meta.spatial.affine, not image.affine
+    meta_affine = image.meta.spatial.affine
+    if meta_affine is not None:
+        return np.asarray(meta_affine, dtype=float)
     # Build from spacing/origin/direction
     spacing = image.spacing or [1.0, 1.0, 1.0]
     origin = image.origin or [0.0, 0.0, 0.0]
