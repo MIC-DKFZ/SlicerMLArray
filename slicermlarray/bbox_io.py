@@ -78,12 +78,20 @@ def _affine_from_image(image) -> np.ndarray:
     return mat
 
 
+_SPATIAL_LABEL_SET = frozenset({"spatial_x", "spatial_y", "spatial_z"})
+
+
 def _metadata_spatial_labels_from_image(image) -> tuple[str, ...]:
-    """Resolve metadata spatial labels for *image* (the order stored in meta)."""
+    """Resolve the spatial axis labels for *image* in their metadata order.
+
+    Only spatial_x/y/z labels are returned; non-spatial axes (e.g. channel)
+    are filtered out.
+    """
     axis_labels = image.meta.spatial.axis_labels
     if axis_labels is None:
         return MLARRAY_DEFAULT_SPATIAL_LABELS_ZYX
-    return tuple(str(label) for label in axis_labels)
+    spatial = tuple(str(label) for label in axis_labels if str(label) in _SPATIAL_LABEL_SET)
+    return spatial if spatial else MLARRAY_DEFAULT_SPATIAL_LABELS_ZYX
 
 
 def _coord_system_from_image(image) -> str:
@@ -131,6 +139,17 @@ def load_mla_rois(
         spatial_labels = metadata_spatial_labels_override or _metadata_spatial_labels_from_image(image)
         coord_system = coord_system_override or _coord_system_from_image(image)
 
+        # Build a spatial-axis index list so we can filter bbox pairs when the
+        # stored bbox has one pair per array axis (including non-spatial axes).
+        full_axis_labels = image.meta.spatial.axis_labels
+        if full_axis_labels is not None:
+            _spatial_indices = [
+                i for i, lbl in enumerate(full_axis_labels)
+                if str(lbl) in _SPATIAL_LABEL_SET
+            ]
+        else:
+            _spatial_indices = None
+
         bboxes = bbox_meta.bboxes
         labels = bbox_meta.labels or [None] * len(bboxes)
         scores = bbox_meta.scores or [None] * len(bboxes)
@@ -140,6 +159,9 @@ def load_mla_rois(
 
         created_nodes: list = []
         for i, (bbox, label, score) in enumerate(zip(bboxes, labels, scores)):
+            # Drop non-spatial axis pairs when the bbox was stored with all axes.
+            if _spatial_indices is not None and len(bbox) > len(spatial_labels):
+                bbox = [bbox[idx] for idx in _spatial_indices]
             center_ras, size_mm, obj_to_world = bbox_vox_to_slicer_roi(
                 bbox, affine, spatial_labels, coord_system
             )
