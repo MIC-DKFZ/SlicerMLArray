@@ -42,6 +42,28 @@ def test_resolve_explicit_vector_layout_with_axis_permutation():
     assert layout.slicer_shape == (3, 5, 7, 2)
 
 
+def test_resolve_single_component_channel_as_scalar():
+    # Shape (1, z, y, x) with a size-1 channel axis should become scalar, not fail.
+    layout = resolve_supported_mla_layout(
+        (1, 344, 512, 512),
+        ("channel", "spatial_z", "spatial_y", "spatial_x"),
+    )
+    assert layout.kind == "scalar"
+    assert layout.component_axis is None
+    assert layout.spatial_axes_zyx == (1, 2, 3)
+    assert layout.slicer_shape == (344, 512, 512)
+
+
+def test_mla_array_to_slicer_squeezes_single_component_channel():
+    layout = resolve_supported_mla_layout(
+        (1, 344, 512, 512),
+        ("channel", "spatial_z", "spatial_y", "spatial_x"),
+    )
+    array = np.zeros((1, 344, 512, 512), dtype=np.float32)
+    result = mla_array_to_slicer(array, layout)
+    assert result.shape == (344, 512, 512)
+
+
 def test_reject_unlabeled_4d_layout():
     with pytest.raises(UnsupportedLayoutError):
         resolve_supported_mla_layout((5, 6, 7, 3), None)

@@ -190,9 +190,16 @@ def resolve_supported_mla_layout(
             "Vector volume import requires exactly 3 spatial axes plus one "
             "channel/components axis."
         )
-    if normalized_shape[component_axis] <= 1:
-        raise UnsupportedLayoutError(
-            "Vector volume import requires more than one component."
+    if normalized_shape[component_axis] == 1:
+        # Single-component channel: squeeze it out and treat as scalar/labelmap.
+        kind: VolumeKind = "labelmap" if is_seg else "scalar"
+        return ResolvedMlaLayout(
+            kind=kind,
+            source_shape=normalized_shape,
+            axis_labels=labels,
+            spatial_axes_zyx=spatial_axes_zyx,
+            metadata_spatial_labels=metadata_spatial_labels,
+            component_axis=None,
         )
 
     return ResolvedMlaLayout(
@@ -210,6 +217,12 @@ def mla_array_to_slicer(array: np.ndarray, layout: ResolvedMlaLayout) -> np.ndar
     axes = list(layout.spatial_axes_zyx)
     if layout.component_axis is not None:
         axes.append(layout.component_axis)
+    if array.ndim > len(axes):
+        # Extra size-1 axes (e.g. a squeezed single-component channel): move
+        # them to the end so np.transpose sees all dims, then drop them.
+        extra = [i for i in range(array.ndim) if i not in axes]
+        transposed = np.transpose(array, axes=axes + extra)
+        return transposed.squeeze(axis=tuple(range(len(axes), array.ndim)))
     if tuple(axes) == tuple(range(array.ndim)):
         return array
     return np.transpose(array, axes=axes)
