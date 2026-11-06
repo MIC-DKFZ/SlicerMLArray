@@ -1,49 +1,14 @@
-[build-system]
-requires = ["setuptools>=68", "setuptools_scm>=8"]
-build-backend = "setuptools.build_meta"
-
+# Only for the pure-Python tests (SlicerMLArray/SlicerMLArrayLib without Slicer). The extension itself is
+# distributed through the 3D Slicer Extensions Index, not PyPI.
 [project]
-name = "slicermlarray"
-description = "A 3D Slicer extension for loading and saving MLArray (.mla) medical image files."
-readme = "README.md"
-requires-python = ">= 3.10"
-license = { text = "MIT" }
-authors = [{ name = "Karol Gotkowski", email = "karol.gotkowski@dkfz.de" }]
-classifiers = [
-  "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
-  "Operating System :: OS Independent",
-]
-keywords = ["copier", "template", "python"]
-dependencies = [
-  "numpy>=2",
-]
-dynamic = ["version"]
+name = "slicermlarray-tests"
+version = "0"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "mlarray>=1.0.0,<2"]
 
 [project.optional-dependencies]
-dev = [
-  "build>=1.0",
-  "pytest>=7.0",
-  "twine>=4.0",
-  "setuptools_scm[toml]>=8.0",
-]
-
-[project.urls]
-Homepage = "https://github.com/MIC-DKFZ/slicermlarray"
-Source = "https://github.com/MIC-DKFZ/slicermlarray"
-Issues = "https://github.com/MIC-DKFZ/slicermlarray/issues"
-
-[tool.setuptools]
-package-dir = { "" = "." }
-py-modules = ["SlicerMLArray"]
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["slicermlarray*"]
+test = ["pytest>=7", "medvol>=1.0.1", "nibabel", "pynrrd"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-
-[tool.setuptools_scm]
-fallback_version = "0.0.0"
-local_scheme = "node-and-date"
+pythonpath = ["SlicerMLArray"]
