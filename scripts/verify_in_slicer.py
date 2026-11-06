@@ -279,6 +279,14 @@ def screenshots():
     capture = ScreenCapture.ScreenCaptureLogic()
     manager = slicer.app.layoutManager()
     manager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)
+    window = slicer.util.mainWindow()
+    window.resize(1600, 1200)
+    window.showMaximized()
+    for panel in ("PanelDockWidget", "PythonConsoleDockWidget"):
+        widget = slicer.util.findChild(window, panel) if hasattr(slicer.util, "findChild") else None
+        if widget is not None:
+            widget.hide()
+    slicer.app.processEvents()
 
     def shoot(prefix):
         slicer.app.processEvents()
@@ -296,13 +304,29 @@ def screenshots():
         shoot(f"phantom_{stem}")
         slicer.mrmlScene.Clear(0)
     if EXAMPLES:
-        dataset = sorted(p for p in EXAMPLES.iterdir() if p.is_dir())[0]
+        datasets = sorted(p for p in EXAMPLES.iterdir() if p.is_dir())
+        dataset = next((d for d in datasets if "AMOS" in d.name), datasets[0])
         case = sorted(p.stem for p in dataset.glob("*_seg.mla"))[0][:-4]
+        nodes = []
         for suffix in ("", "_seg", "_boxes"):
-            load(dataset / f"{case}{suffix}.mla")
+            nodes += load(dataset / f"{case}{suffix}.mla")[0]
         for node in slicer.util.getNodesByClass("vtkMRMLSegmentationNode"):
             node.CreateClosedSurfaceRepresentation()
-        shoot(f"example_{case}")
+            node.GetDisplayNode().SetOpacity2DFill(0.35)
+        rois = [n for n in nodes if n.IsA("vtkMRMLMarkupsROINode")]
+        largest = max(rois, key=lambda r: np.prod(r.GetSize()))
+        centre = [0.0] * 3
+        largest.GetCenterWorld(centre)
+        for view in ("Red", "Green", "Yellow"):
+            manager.sliceWidget(view).sliceLogic().FitSliceToAll()
+            manager.sliceWidget(view).mrmlSliceNode().JumpSliceByCentering(*centre)
+        three = manager.threeDWidget(0).threeDView()
+        three.resetFocalPoint()
+        three.resetCamera()
+        slicer.app.processEvents()
+        for view in ("Red", "Green", "Yellow"):
+            capture.captureImageFromView(manager.sliceWidget(view).sliceView(), str(OUT / f"example_{case}_{view}.png"))
+        capture.captureImageFromView(three, str(OUT / f"example_{case}_3d.png"))
 
 
 try:
