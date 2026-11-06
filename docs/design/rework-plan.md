@@ -150,7 +150,7 @@ with a token secret and was never used: remove that job). Distribution: Slicer E
 
 | # | step | done |
 |---|---|---|
-| 1 | Install Slicer 5.12.4 (latest stable), remove 5.10.0; re-run KB `slicer_geometry.py` facts on 5.12.4 | |
+| 1 | Install Slicer 5.12.4 (latest stable, `~/Slicer-5.12.4-linux-amd64`), remove 5.10.0 (done 2026-11-06); re-run KB `slicer_geometry.py` facts on 5.12.4 | install ☑ |
 | 2 | Delete the v0 code and tests; new layout (§4); CI runs pytest on 3.10–3.13 with mlarray 1.0 | |
 | 3 | `geometry.py` + tests: every voxel's RAS position equals MedVol's patient position (LPS→RAS) for axial/sagittal/flipped/oblique/2-D grids and µm units; round trip IJKToRAS → space → IJKToRAS exact | |
 | 4 | Reader for scalar/vector/split channels + values scaling | |
