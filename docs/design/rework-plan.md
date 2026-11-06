@@ -1,6 +1,6 @@
 # SlicerMLArray rework for MLArray 1.0 — plan
 
-Status: **implemented, verification running** (2026-11-06; decisions in §8 confirmed, deviations from the plan in §9). Branch `rework/v1` (from `main` @ `d32e3f3`, which is 2 commits ahead
+Status: **implemented and verified, waiting for the user's approval** (2026-11-06; branch `rework/v1`, not pushed; decisions in §8 confirmed, deviations from the plan in §9). Branch `rework/v1` (from `main` @ `d32e3f3`, which is 2 commits ahead
 of `origin/main`). Work through the stages in order; tick a step and add its commit hash when it is done.
 
 Background reading: `~/projects/mlarray/docs/design/rework-plan.md` ("Start here"), the MLArray v1 spec
@@ -157,8 +157,8 @@ with a token secret and was never used: remove that job). Distribution: Slicer E
 | 5 | Labels → segmentation (names, colours, terminology) and labelmap option | ☑ `a505153` |
 | 6 | Boxes → ROIs (index and space frames, box-only files) | ☑ `a505153` |
 | 7 | Writer: volumes, labelmaps, segmentations; ROIs via the module panel; keep metadata of loaded files | ☑ `a505153` |
-| 8 | Verification in Slicer (§6) on KB phantoms and the 25 example cases | |
-| 9 | README (install, what you see, saving, limits), Extensions Index files, screenshots; merge, push | |
+| 8 | Verification in Slicer 5.12.4: `scripts/verify_in_slicer.py` 95/95 (7 KB phantom grids vs Slicer's readers, layouts, round trips, 25 example cases), on-screen screenshots (letters read radiologically, boxes on organs), ioManager open/save, first-use install, module panel | ☑ `9995bf0` |
+| 9 | README, Extensions Index entry (`docs/extensions-index/`), screenshot; merge into `main` and push after approval | README ☑ `10dd8ee`; merge/push open |
 | 10 | Submit to the Extensions Index (user decision) | |
 
 ## 6. Verification
