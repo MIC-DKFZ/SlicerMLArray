@@ -1,6 +1,6 @@
 # SlicerMLArray rework for MLArray 1.0 — plan
 
-Status: **implemented and verified, waiting for the user's approval** (2026-11-06; branch `rework/v1`, not pushed; decisions in §8 confirmed, deviations from the plan in §9). Branch `rework/v1` (from `main` @ `d32e3f3`, which is 2 commits ahead
+Status: **approved and merged into `main` (`a0f0f8a`, pushed to GitLab 2026-11-06); next: GitHub mirror, Extensions Index** ( decisions in §8 confirmed, deviations from the plan in §9). Branch `rework/v1` (from `main` @ `d32e3f3`, which is 2 commits ahead
 of `origin/main`). Work through the stages in order; tick a step and add its commit hash when it is done.
 
 Background reading: `~/projects/mlarray/docs/design/rework-plan.md` ("Start here"), the MLArray v1 spec
