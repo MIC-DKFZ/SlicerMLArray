@@ -206,3 +206,14 @@ with a token secret and was never used: remove that job). Distribution: Slicer E
 - **GitHub:** there is no public GitHub repository yet (`MIC-DKFZ/SlicerMLArray` does not exist; the GitLab remote
   is `hi-dkfz/applied-computer-vision-lab/tools/slicermlarray`). The Extensions Index needs a public repository URL
   for `scm_url`/homepage: create the GitHub mirror before submitting.
+
+## 10. Extensions Index submission (after the user's approval)
+
+Checklist (https://slicer.readthedocs.io/en/latest/developer_guide/extensions.html#submit-the-extension-to-the-extensions-index):
+1. Public GitHub repository `MIC-DKFZ/SlicerMLArray` (mirror of the GitLab repo), `main` = `rework/v1`; the README
+   screenshot and `SlicerMLArray.png` must be reachable at the URLs in `CMakeLists.txt`.
+2. Repository topic `3d-slicer-extension`; license (MIT), README with screenshot: done.
+3. Fork `Slicer/ExtensionsIndex`, add `docs/extensions-index/SlicerMLArray.json` as `SlicerMLArray.json` on `main`
+   (preview builds), open a PR; the PR template's checklist is answered by this repo. After the nightly build is
+   green, backport to the `5.12` branch so it appears in the stable Extensions Manager.
+4. Not done locally: a CMake build against a Slicer build tree (the extension is pure Python; the factory builds it).
