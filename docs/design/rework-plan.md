@@ -217,3 +217,8 @@ Checklist (https://slicer.readthedocs.io/en/latest/developer_guide/extensions.ht
    (preview builds), open a PR; the PR template's checklist is answered by this repo. After the nightly build is
    green, backport to the `5.12` branch so it appears in the stable Extensions Manager.
 4. Not done locally: a CMake build against a Slicer build tree (the extension is pure Python; the factory builds it).
+
+**Submitted 2026-11-06:** GitHub mirror https://github.com/MIC-DKFZ/SlicerMLArray (topic set, Projects off, CI
+green), PR https://github.com/Slicer/ExtensionsIndex/pull/2444 (fork `Karol-G/ExtensionsIndex`, branch
+`add-SlicerMLArray`). Open: uncheck Releases/Packages in the repo's About box (web UI only); after the merge and
+green preview builds, a second PR to the index's `5.12` branch.
