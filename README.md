@@ -83,5 +83,15 @@ and the example datasets (see the script's docstring; test data from `scripts/ma
 
 ## License
 
-MIT. Developed by the Applied Computer Vision Lab (ACVL) of [Helmholtz Imaging](https://www.helmholtz-imaging.de/)
-and the [Division of Medical Image Computing](https://www.dkfz.de/en/medical-image-computing) at DKFZ.
+MIT (see `LICENSE.txt`).
+
+## Acknowledgments
+
+<p align="left">
+  <img src="https://github.com/MIC-DKFZ/vidata/raw/main/imgs/Logos/HI_Logo.png" width="150"> &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="https://github.com/MIC-DKFZ/vidata/raw/main/imgs/Logos/DKFZ_Logo.png" width="500">
+</p>
+
+This repository is developed and maintained by the Applied Computer Vision Lab (ACVL)
+of [Helmholtz Imaging](https://www.helmholtz-imaging.de/) and the
+[Division of Medical Image Computing](https://www.dkfz.de/en/medical-image-computing) at DKFZ.
