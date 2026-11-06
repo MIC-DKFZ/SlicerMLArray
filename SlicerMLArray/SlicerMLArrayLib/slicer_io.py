@@ -244,7 +244,11 @@ def _segmentation_from_channels(data: np.ndarray, meta, g, base: str):
     segmentation = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode", slicer.mrmlScene.GenerateUniqueName(base))
     segmentation.SetReferenceImageGeometryParameterFromVolumeNode(reference)
     table = {label.value: label for label in label_table(meta.values, list(range(1, data.shape[0])))}
+    named_background = "0" in (meta.values.labels or {}) and dict(meta.values.labels["0"]).get("name") not in (
+        None, "background")
     for channel in range(data.shape[0]):
+        if channel == 0 and not named_background:
+            continue                     # channel 0 is the background; rebuilt on save
         label = table.get(channel) or Label(channel, f"label {channel}", (128, 128, 128))
         segment_id = segmentation.GetSegmentation().AddEmptySegment("", label.name)
         slicer.util.updateSegmentBinaryLabelmapFromArray((data[channel] != 0).astype(np.uint8), segmentation,
@@ -485,6 +489,8 @@ def _segmentation_array(node, record, original_values):
         original = Values.from_dict(original_values) if original_values and original_values.get("kind") == "label" else None
         table = table_dict(labels, background(original) if original else None)
         if channels:
+            if 0 not in wanted.values():
+                out[0] = (out[1:] == 0).all(axis=0)              # background: in no other channel
             return np.moveaxis(out, 0, -1), matrix, table, record["extra_axis"]
         if record and record.get("dtype"):
             out = _label_dtype(out, record)

@@ -1,81 +1,87 @@
-SlicerMLArray
-=============
+# SlicerMLArray
 
-Python-based 3D Slicer integration for loading and saving MLArray (`.mla`) image volumes through Slicer's normal file dialogs.
+A [3D Slicer](https://www.slicer.org) extension for [MLArray](https://github.com/MIC-DKFZ/mlarray) (`.mla`) files:
+open them with **File > Add Data** and save volumes and segmentations with **File > Save**. Images are placed
+exactly where the file's geometry puts them, label maps open as segmentations with their names, colours and codes,
+and bounding boxes as ROIs.
 
-## What it does
+<p align="center"><img src="docs/screenshot.png" width="800" alt="CT with segmentation and boxes"></p>
 
-- loads supported `.mla` files as Slicer volumes
-- saves scalar and labelmap Slicer volumes back to `.mla`
-- preserves spacing, origin, direction, dtype, and selected metadata
-- respects `meta.spatial.coord_system` for `RAS` and `LPS` MLArray files
-- installs the `mlarray` Python dependency inside Slicer on demand when missing
+## Install
 
-## Supported layouts
+- **Extensions Manager** (once published): search for *MLArray*.
+- **From source:** clone this repository, then in Slicer *Edit > Application Settings > Modules > Additional module
+  paths* add the `SlicerMLArray/SlicerMLArray` folder and restart.
 
-Load:
+The first time an `.mla` file is opened or saved, Slicer asks to install the Python package `mlarray` (1.x).
 
-- 3D scalar MLArray images
-- 3D labelmap MLArray images when `meta.is_seg=True`
-- 4D vector MLArray images only when axis labels explicitly identify one `channel` or `components` axis and explicit `spatial_z`, `spatial_y`, `spatial_x`
+## What you see
 
-Save:
+| in the file | in Slicer |
+|---|---|
+| image (2-D or 3-D) | scalar volume |
+| `values.kind: label` | segmentation: one segment per label with its name, colour and code (as terminology); or a labelmap volume (module setting) |
+| `values.kind: instance` | labelmap volume |
+| channel axis with `red, green, blue` labels, component axis | vector volume |
+| other channel axis (MR echoes, modalities) | one volume per channel, named by the channel labels |
+| time axis | sequence (with its times); play it with the Sequences toolbar |
+| `label_layout: channel` (one-hot) | segmentation, one segment per channel (overlaps allowed) |
+| `profiles.ml.boxes` | one Markups ROI per box, named `class score` (e.g. `tumor 0.84`), coloured by class, in a folder `<file> boxes` |
 
-- `vtkMRMLScalarVolumeNode`
-- `vtkMRMLLabelMapVolumeNode`
+- **Geometry.** Every voxel is placed from the file's space matrix and the direction words of its axes
+  (`increases_toward`); letter codes are never used. The array is used as stored (no reorientation, no resampling),
+  so oblique and sheared grids are exact; Slicer aligns its slice views with the image when it is shown. Units are
+  converted to millimetre. A space without anatomical directions (e.g. a microscope stage) is shown with its axes
+  toward left, posterior, superior, and a warning says so.
+- **Values** are shown physically: scaling (`scale`, `offset`, e.g. Hounsfield units) is applied, keeping integer
+  types where the result is integer.
+- **Boxes** follow the voxel grid, also for flipped and oblique images; a box covers its voxels from edge to edge.
+  Files that only hold boxes (empty array) open as ROIs only.
+- Layouts Slicer cannot show (more than one non-space axis, more than three space axes) are refused with the reason.
 
-Unsupported layouts fail explicitly. This MVP does not reinterpret ambiguous tensors, temporal stacks, or unlabeled 4D arrays.
+## Saving
 
-## Repository layout
+**File > Save** offers *MLArray (.mla)* for scalar, labelmap and vector volumes and segmentations (it is the
+default format for nodes opened from `.mla`).
 
-- `SlicerMLArray.py`: hidden scripted Slicer module and file reader/writer entry points
-- `slicermlarray/conversion.py`: pure-Python axis and geometry mapping logic
-- `slicermlarray/dependencies.py`: runtime dependency checks and installation flow
-- `slicermlarray/slicer_io.py`: Slicer runtime bridge
-- `DESIGN.md`: design note based on the inspected local MLArray and Slicer codebases
+- A node opened from `.mla` keeps all metadata of its file: axis names and order, spaces, source (e.g. DICOM
+  headers), user metadata, profiles and history; a history entry is added. Unchanged geometry keeps its exact
+  matrix; a moved or resampled image gets its space recomputed. Scaled values are stored again with the original
+  type and scaling when they still fit.
+- A segmentation is saved as a label map on its file's grid (or its reference image's grid). Overlapping segments
+  cannot be stored in one label map: the save stops and says which segment overlaps. Segments keep their values,
+  names, colours and codes; new segments get the next free value.
+- A new node is written in the DICOM patient frame (left, posterior, superior; millimetre), the same frame MedVol
+  writes, so a volume saved from Slicer and the same image converted with MedVol match.
+
+**Boxes**: module *MLArray* (category *Informatics*) > *Export boxes*: pick ROIs and a file. With an image selected,
+the boxes are stored in that image's voxel indices; otherwise ROIs from an `.mla` file are written in that file's
+frame, and new ROIs in patient coordinates (LPS, mm). The ROI's label and score are kept.
+
+## Python
+
+```python
+logic = slicer.util.getModuleLogic("SlicerMLArray")
+nodes = logic.load("case.mla")
+logic.save(segmentationNode, "case_seg.mla")
+logic.saveBoxes(roiNodes, "case_boxes.mla", referenceVolume)
+```
 
 ## Development
 
-Install the package for local testing:
+The Slicer-independent part (`SlicerMLArray/SlicerMLArrayLib`: geometry, layouts, values, boxes, metadata) is
+tested with pytest:
 
 ```bash
-pip install -e .[dev]
+pip install "mlarray>=1,<2" "medvol>=1.0.1" nibabel pynrrd pytest
 pytest
 ```
 
-If you also want real `mlarray` runtime tests outside Slicer, install `mlarray` into your Python environment as well.
+Inside Slicer: the module's self-test (*Developer mode > Reload and Test*), and `scripts/verify_in_slicer.py`, which
+checks the orientation-KB letter phantoms against Slicer's own NIfTI/NRRD readers, every layout, save round trips
+and the example datasets (see the script's docstring; test data from `scripts/make_verify_data.py`).
 
-## Trying it in the local Slicer installation
+## License
 
-Target Slicer install:
-
-- `/home/k539i/Slicer-5.10.0-linux-amd64`
-
-Steps:
-
-1. Start Slicer from `/home/k539i/Slicer-5.10.0-linux-amd64/Slicer`.
-2. Open `Edit -> Application Settings -> Modules`.
-3. Add `/home/k539i/Documents/projects/SlicerMLArray` to `Additional module paths`.
-4. Restart Slicer.
-5. Open a `.mla` file using `File -> Add Data` or `File -> Open`.
-6. Save a supported loaded or existing scalar/labelmap volume as `.mla` through `File -> Save`.
-
-On the first `.mla` load/save in a Slicer Python environment that does not already contain `mlarray`, the extension prompts to install it via `slicer.util.pip_install("mlarray")`.
-
-## Mapping policy
-
-- Slicer numpy arrays are treated as `(z, y, x)`.
-- Saved MLArray files use explicit axis labels `["spatial_z", "spatial_y", "spatial_x"]`.
-- Geometry is permuted between MLArray spatial-axis order and Slicer's `(x, y, z)` IJK/RAS geometry representation.
-- `meta.spatial.coord_system="RAS"` is used directly; `"LPS"` is converted into Slicer's internal `RAS`.
-- older plugin-written files without `meta.spatial.coord_system` fall back to legacy `RAS` interpretation.
-- Labelmap export sets `meta.is_seg=True`.
-- Saved files also write `meta.spatial.coord_system="RAS"`.
-- Namespaced metadata is still written under `extra.slicer_mlarray` for plugin bookkeeping and legacy compatibility.
-
-## Known limitations
-
-- no custom MRML storage node yet, so default scene-storage behavior is not fully `.mla`-native
-- no vector-volume export in this MVP
-- no temporal/ND tensor support
-- external `.mla` files with `coord_system` values other than `RAS` or `LPS` are rejected instead of guessed
+MIT. Developed by the Applied Computer Vision Lab (ACVL) of [Helmholtz Imaging](https://www.helmholtz-imaging.de/)
+and the [Division of Medical Image Computing](https://www.dkfz.de/en/medical-image-computing) at DKFZ.

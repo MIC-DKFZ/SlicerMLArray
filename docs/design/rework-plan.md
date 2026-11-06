@@ -1,6 +1,6 @@
 # SlicerMLArray rework for MLArray 1.0 — plan
 
-Status: **plan, not started** (2026-11-06). Branch `rework/v1` (from `main` @ `d32e3f3`, which is 2 commits ahead
+Status: **implemented, verification running** (2026-11-06; decisions in §8 confirmed, deviations from the plan in §9). Branch `rework/v1` (from `main` @ `d32e3f3`, which is 2 commits ahead
 of `origin/main`). Work through the stages in order; tick a step and add its commit hash when it is done.
 
 Background reading: `~/projects/mlarray/docs/design/rework-plan.md` ("Start here"), the MLArray v1 spec
@@ -150,13 +150,13 @@ with a token secret and was never used: remove that job). Distribution: Slicer E
 
 | # | step | done |
 |---|---|---|
-| 1 | Install Slicer 5.12.4 (latest stable, `~/Slicer-5.12.4-linux-amd64`), remove 5.10.0 (done 2026-11-06); re-run KB `slicer_geometry.py` facts on 5.12.4 | install ☑ |
-| 2 | Delete the v0 code and tests; new layout (§4); CI runs pytest on 3.10–3.13 with mlarray 1.0 | |
-| 3 | `geometry.py` + tests: every voxel's RAS position equals MedVol's patient position (LPS→RAS) for axial/sagittal/flipped/oblique/2-D grids and µm units; round trip IJKToRAS → space → IJKToRAS exact | |
-| 4 | Reader for scalar/vector/split channels + values scaling | |
-| 5 | Labels → segmentation (names, colours, terminology) and labelmap option | |
-| 6 | Boxes → ROIs (index and space frames, box-only files) | |
-| 7 | Writer: volumes, labelmaps, segmentations, ROIs; keep metadata of loaded files | |
+| 1 | Install Slicer 5.12.4 (latest stable, `~/Slicer-5.12.4-linux-amd64`), remove 5.10.0; re-run KB `slicer_geometry.py` facts on 5.12.4 (identical to 5.10.0) | ☑ |
+| 2 | Delete the v0 code and tests; new layout (§4); CI runs pytest on 3.10/3.12/3.13 with mlarray 1.0 | ☑ `a505153` |
+| 3 | `geometry.py` + tests: IJKToRAS equals the NIfTI affine via MedVol for ras/lps/sagittal/mirrored/oblique, NRRD, axis orders, units, 2-D, round trips | ☑ `a505153` (36 tests) |
+| 4 | Reader for scalar/vector/split channels/sequences + values scaling | ☑ `a505153` |
+| 5 | Labels → segmentation (names, colours, terminology) and labelmap option | ☑ `a505153` |
+| 6 | Boxes → ROIs (index and space frames, box-only files) | ☑ `a505153` |
+| 7 | Writer: volumes, labelmaps, segmentations; ROIs via the module panel; keep metadata of loaded files | ☑ `a505153` |
 | 8 | Verification in Slicer (§6) on KB phantoms and the 25 example cases | |
 | 9 | README (install, what you see, saving, limits), Extensions Index files, screenshots; merge, push | |
 | 10 | Submit to the Extensions Index (user decision) | |
@@ -183,10 +183,26 @@ with a token secret and was never used: remove that job). Distribution: Slicer E
 - DICOM SEG/RT export from Slicer to `.mla` beyond the label table (`source` is not synthesised).
 - Pyramids, non-linear `profile_mapping`.
 
-## 8. Decisions to confirm with the user
+## 8. Decisions (confirmed by the user 2026-11-06: all recommendations; submit to the Extensions Index after their approval)
 
 1. Labels default: segmentation node (recommended; names/colours/codes visible in Segment Editor) vs labelmap.
 2. Spaces without anatomical directions: show on L/P/S axes with a warning (recommended) or reject.
 3. Segmentation export with overlapping segments: error with a hint (recommended) or `label_layout: channel`.
 4. Saving ROIs: separate box-only `.mla` (recommended, like the example `_boxes.mla`) vs into the image file.
 5. Distribution: Extensions Index submission at the end, or only "add module path" for now.
+
+## 9. Deviations from the plan and findings
+
+- **ROI export** is not in File > Save (Slicer's save dialog writes one file per node, which does not fit one
+  box file per image): the module panel *Export boxes* (and `logic.saveBoxes`) writes selected ROIs to a box-only
+  file, in a reference image's indices, in the ROIs' original file frame, or in patient LPS coordinates.
+- **Box axes the box does not name** span the whole image (not one voxel).
+- **`label_layout: channel`:** channel 0 is the background unless the label table names it; it is not loaded as
+  a segment and is rebuilt on save as "in no other channel".
+- **Slicer's own NIfTI reader reverses K for a left-handed grid** (sagittal phantom stored with a flipped first
+  axis): IJKToRAS and the array differ from nibabel/SimpleITK/MedVol, but every voxel is at the same world position.
+  SlicerMLArray keeps the stored array order (matches nibabel/SimpleITK). The verification therefore compares world
+  positions through the voxel index mapping, not raw matrices.
+- **GitHub:** there is no public GitHub repository yet (`MIC-DKFZ/SlicerMLArray` does not exist; the GitLab remote
+  is `hi-dkfz/applied-computer-vision-lab/tools/slicermlarray`). The Extensions Index needs a public repository URL
+  for `scm_url`/homepage: create the GitHub mirror before submitting.
